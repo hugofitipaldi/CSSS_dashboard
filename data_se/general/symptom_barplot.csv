@@ -1,0 +1,15 @@
+SWE,Weight,group_covid
+Förlust av lukt/smak,1.87,Positiv
+Ovanlig muskelsmärta,0.58,Positiv
+Feber,0.37,Positiv
+Hoppat över måltider,0.25,Positiv
+Manligt kön,0.15,Positiv
+Ihållande hosta,0.09,Positiv
+Ovanlig trötthet,0.02,Positiv
+Ont i halsen,-0.59,Negativ
+Diarré och förlust lukt/smak,0.07,Positiv
+Manligt kön och förlust lukt/smak,0.05,Positiv
+Ont eller irritation i ögon och förlust lukt/smak,-0.08,Negativ
+Ont i halsen och förlust lukt/smak,-0.18,Negativ
+Hes röst och förlust lukt/smak,-0.13,Negativ
+Frossa/huttrar och förlust lukt/smak,-0.06,Negativ
