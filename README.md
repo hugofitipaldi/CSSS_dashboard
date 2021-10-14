@@ -4,7 +4,7 @@
 The dashboard is available
 [here](https://csss-resultat.shinyapps.io/csss_dashboard/)
 
-<img src="man/figures/dashboard.png" width="100%" />
+<img src="man/figures/dashboard_new.png" width="100%" />
 
 ## About COVID Symptom Study - Sweden
 
