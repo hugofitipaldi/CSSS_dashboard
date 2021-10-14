@@ -244,6 +244,30 @@ lan_gammal <- rio::import('data_se/archive/lan_gammal.csv')
 siffror_senaste <- rio::import('data_se/archive/siffror_senaste.csv')
 siffror_gammal <- rio::import('data_se/archive/siffror_gammal.csv')
 
+# vaccine info -----------------------------------------------------------------
+
+vaccin_df <- rio::import("data_se/vacci_df.csv")
+#vaccin_df$type <- c("1st dose", "2nd dose", "Non-vaccinated", "total")
+names(vaccin_df) <- c("count", "type")
+vaccin_df$total <- vaccin_df[vaccin_df$type == "active_participants",]$count
+vaccin_df <- vaccin_df %>%
+  mutate(prop = count/total)
+
+vaccin_df <- vaccin_df %>%
+  mutate(day = Sys.Date())
+
+
+vaccin_df[vaccin_df$type == "participants_dose1",]$type <- "Endast en dos"
+vaccin_df[vaccin_df$type == "participants_dose2",]$type <- "Två doser"
+vaccin_df[vaccin_df$type == "non_vacc",]$type <- "Ovaccinerade"
+
+vaccin_df$type <- factor(vaccin_df$type, levels = c("Endast en dos","Två doser", "Ovaccinerade", "active_participants"))
+
+vaccin_df <- vaccin_df %>%
+  filter(type != "active_participants")
+
+
+
 ## ---------------------------------------------------------------------------------------------------
 
 ## App's structure
@@ -268,6 +292,8 @@ sidebar <- dashboardSidebar(
                               .fa-mobile-alt{color:#FFFFFF
                               }
                               .fa-users{color:#FFFFFF
+                              }
+                              .fa-user-plus{color:#FFFFFF
                               }
                               .fa-thermometer-half{color:#FFFFFF
                               }
@@ -299,28 +325,65 @@ body <- dashboardBody(
     tabItem(tabName = "welcome",
             h2("COVID Symptom Study Sverige - Dashboard"),
             fluidRow(
-              valueBox(value = tags$p(as.character(sub("\\s+$", "", gsub('(.{3})', '\\1 ', daily_numbers$patients_total))), style = "font-size: 90%;"), subtitle = "Deltagare i Sverige", icon = icon("users"), color = "navy"),
-              valueBox(value = tags$p(confidence_interval, style = "font-size: 90%;"), subtitle = "uppskattad förekomst av symtomatisk covid-19", icon = icon("thermometer-half"), color = "navy"),
-              valueBoxOutput("infektionBox"),
-              
-              valueBox(value = tags$p(paste0(substr(as.character(daily_numbers$assessments_total), start = 1, stop = 2),",", substr(as.character(daily_numbers$assessments_total), start = 3, stop = 3) ," miljoner"), style = "font-size: 90%;"), subtitle = "Antal rapporter i Sverige", icon = icon("mobile-alt"), color = "navy")
+              valueBox(value = tags$p(as.character(sub("\\s+$", "", gsub('(.{3})', '\\1 ', daily_numbers$patients_total))), style = "font-size: 90%;"), subtitle = "Deltagare i Sverige", icon = icon("users"), color = "navy", width=3),
+              valueBox(value = tags$p(format(vaccin_df$total[1], big.mark=" ", trim=TRUE), style = "font-size: 90%;"), subtitle = "Aktiva deltagare*", icon = icon("user-plus"), color = "navy", width=3),
+              valueBox(value = tags$p(confidence_interval, style = "font-size: 70%;"), subtitle = HTML(paste0("uppskattad förekomst av", br(), "symtomatisk covid-19")), icon = icon("thermometer-half"), color = "navy", width=3),
+              #valueBoxOutput("infektionBox"),
+              valueBox(value = tags$p(paste0(substr(as.character(daily_numbers$assessments_total), start = 1, stop = 2),",", substr(as.character(daily_numbers$assessments_total), start = 3, stop = 3) ," miljoner"), style = "font-size: 90%;"), subtitle = "Antal rapporter i Sverige", icon = icon("mobile-alt"), color = "navy", width=3)
             ),
-            fluidRow(
-              box(width = 6, 
-                  title = span(icon("info-circle"), "Om Dashboard"), status = "primary", solidHeader = TRUE, textOutput("info-circle"),
-                  "Välkommen till COVID Symptom Study Sveriges dashboard med interaktiv grafik. Du navigerar via menyn till vänster där du hittar våra senaste nationella och regionala kartor. Använd datumreglaget för att välja det datum du vill visa för kartorna. Vi arbetar hela tiden med att utöka funktionaliteten och innehållet på denna sida så vi ber om ert tålamod under tiden som sidan utvecklas. För frågor och feedback - ",
-                  a(actionButton(inputId = "email1", label = "mejla oss", 
-                                 icon = icon("envelope", lib = "font-awesome")),
-                    href="mailto:covid-symptom-study@med.lu.se"),
-                  background = "navy",
-                  style = "font-size: 150%;"
-              ),
-              box(width = 6, 
-                  title = span(icon("exclamation-triangle"), "Information"), status = "primary", solidHeader = TRUE, textOutput("exclamation-triangle"),
-                  "COVID Symptom Study Sveriges resultatsida har uppdaterats den 16 augusti 2021. Uppdateringen omfattar data för hela sommarperioden (inklusive uppehållet). Tidigare resultat hittar du via flikarna i menyn.",
-                  style = "font-size: 120%;")
+            column(width = 6,
+                   fluidRow(
+                     box(width = 12, 
+                         title = span(icon("info-circle"), "Om Dashboard"), status = "primary", solidHeader = TRUE, textOutput("info-circle"),
+                         "Välkommen till COVID Symptom Study Sveriges dashboard med interaktiv grafik. Du navigerar via menyn till vänster där du hittar våra senaste nationella och regionala kartor. Använd datumreglaget för att välja det datum du vill visa för kartorna. Vi arbetar hela tiden med att utöka funktionaliteten och innehållet på denna sida så vi ber om ert tålamod under tiden som sidan utvecklas. För frågor och feedback - ",
+                         a(actionButton(inputId = "email1", label = "mejla oss", 
+                                        icon = icon("envelope", lib = "font-awesome")),
+                           href="mailto:covid-symptom-study@med.lu.se"),
+                         background = "navy",
+                         style = "font-size: 150%;"
+                     )
+                   ),
+                   fluidRow(
+                     box(width = 12, 
+                         title = span(icon("exclamation-triangle"), "Information"), status = "primary", solidHeader = TRUE, textOutput("exclamation-triangle"),
+                         #"COVID Symptom Study Sveriges beräkningsmetoder grundar sig på jämförelser mellan de studiedeltagare som testar positivt och de som testar negativt för pågående covid-19-infektion. Dessa jämförelser används sedan för att uppskatta sannolikheten att de som inte testat sig skulle vara positiva om de hade testats. Mellan vecka 19 2020 och vecka 3 2021 använde vi oss av en beräkningsmetod som grundade sig på data från studiedeltagare i Storbritannien. Numera är det möjligt för oss att basera vår prediktionsmodell på enbart svenska data tack vare tillgång till tillräckliga data (totalt har den svenska studien tagit emot drygt 13 miljoner dagsrapporter). Nytt i den aktuella modellen är att den bland annat kalibrerats mot Folkhälsomyndighetens mätningar, innefattar en förbättrad beräkning av konfidensintervallet och viktning baserat på kön/ålder. Vår avsikt är att träna om modellen regelbundet och när detta sker meddelas det här.",
+                         #"Uppdateringar av COVID Symptom Study Sveriges resultatsida pausas under sommaren 2021 från och med den 25 juni 2021. När sidan uppdateras igen efter sommaren kommer data för hela perioden (även under uppehållet) att visas. Tidigare resultat hittar du via flikarna i menyn.", 
+                         "Vi har nu analyserat hur många av våra aktiva deltagare som är vaccinerade. Då hela 97 % av våra aktiva studiedeltagare nu är vaccinerade med två doser vaccin är våra prediktioner för förekomsten av symtomatisk covid-19 främst överförbara på den vuxna vaccinerade befolkningen i Sverige. Den höga vaccinationsgraden bland våra deltagare medför att data och diagram som presenteras på denna sida främst reflekterar läget bland den vaccinerade befolkningen.",
+                         #tags$p(""),
+                         #tags$p("Vid frågor, ",
+                         #        a(actionButton(inputId = "email2", label = "mejla oss", 
+                         #                       icon = icon("envelope", lib = "font-awesome")),
+                         #          href="mailto:covid-symptom-study@med.lu.se"),
+                         # "Observera att universiteten har begränsad bemanning under semestertider så svarstiden kan vara längre än normalt."),
+                         style = "font-size: 120%;"
+                     )
+                   )
             ),
+            # column(width = 8, plotlyOutput("lineplot1", height = 400))
+            
+            column(width=6,
+                   fluidRow(
+                     box(width = 12, 
+                         title = span(icon("syringe"), "% vaccinerade bland aktiva deltagare*"), status = "primary", solidHeader = TRUE, textOutput("syringe"),
+                         plotlyOutput("vaccplot", height = 400),
+                         "*aktiva deltagare är de som bidragit med data till studien minst en gång under de senaste sju dagarna",
+                         #"COVID Symptom Study Sveriges beräkningsmetoder grundar sig på jämförelser mellan de studiedeltagare som testar positivt och de som testar negativt för pågående covid-19-infektion. Dessa jämförelser används sedan för att uppskatta sannolikheten att de som inte testat sig skulle vara positiva om de hade testats. Mellan vecka 19 2020 och vecka 3 2021 använde vi oss av en beräkningsmetod som grundade sig på data från studiedeltagare i Storbritannien. Numera är det möjligt för oss att basera vår prediktionsmodell på enbart svenska data tack vare tillgång till tillräckliga data (totalt har den svenska studien tagit emot drygt 13 miljoner dagsrapporter). Nytt i den aktuella modellen är att den bland annat kalibrerats mot Folkhälsomyndighetens mätningar, innefattar en förbättrad beräkning av konfidensintervallet och viktning baserat på kön/ålder. Vår avsikt är att träna om modellen regelbundet och när detta sker meddelas det här.",
+                         #"Uppdateringar av COVID Symptom Study Sveriges resultatsida pausas under sommaren 2021 från och med den 25 juni 2021. När sidan uppdateras igen efter sommaren kommer data för hela perioden (även under uppehållet) att visas. Tidigare resultat hittar du via flikarna i menyn.", 
+                         #tags$p(""),
+                         #tags$p("Vid frågor, ",
+                         #        a(actionButton(inputId = "email2", label = "mejla oss", 
+                         #                       icon = icon("envelope", lib = "font-awesome")),
+                         #          href="mailto:covid-symptom-study@med.lu.se"),
+                         # "Observera att universiteten har begränsad bemanning under semestertider så svarstiden kan vara längre än normalt."),
+                         style = "font-size: 120%;"
+                     )
+                   )
+                   # column(width = 8, plotlyOutput("vaccplot", height = 400))
+            ),
+            
+            
             fluidRow(
+              #tags$a(imageOutput("tryscreen"), href = "https://www.covid19app.lu.se/")
               imageOutput("tryscreen")
             )
     ),
@@ -409,9 +472,9 @@ body <- dashboardBody(
                )
         ),
         fluidRow(
-          box(width = 8, title = span(icon("exclamation-triangle"), "Uppdatering"), status = "primary", solidHeader = TRUE, textOutput("exclamation-triangle3"),
-              "Den 4 november uppdaterades frågorna om symtom i appen, bl.a. omformulerades frågan om feber. Detta medför att trenderna före och efter detta datum inte är helt jämförbara då frågorna och sättet deltagare rapporterar på skiljer sig från tidigare.", 
-              tags$p("Den viktiga frågan kring lukt och smak är mycket central i vår modell då den representerar det symtom som skiljer sig mest åt mellan personer som har ett positivt PCR-test för covid-19 och personer som inte har det. Frågan har gjorts mer specifik och delats upp i två frågor (en om förlorat lukt-/smaksinne, en om förändringar i lukt-/smaksinne). Vi har nu lagt in båda dessa frågor i modellen och uppdaterat våra resultat från den 4:e november och framåt. Vi arbetar kontinuerligt med att uppdatera våra modeller."))
+          box(width = 8, title = span(icon("exclamation-triangle"), "Information"), status = "primary", solidHeader = TRUE, textOutput("exclamation-triangle3"),
+              "Vi har nu analyserat hur många av våra aktiva deltagare som är vaccinerade. Då hela 97 % av våra aktiva studiedeltagare nu är vaccinerade med två doser vaccin är våra prediktioner för förekomsten av symtomatisk covid-19 främst överförbara på den vuxna vaccinerade befolkningen i Sverige. Den höga vaccinationsgraden bland våra deltagare medför att data och diagram som presenteras på denna sida främst reflekterar läget bland den vaccinerade befolkningen.", 
+          )
         )
       )
     ),
@@ -455,6 +518,7 @@ body <- dashboardBody(
                            style = "font-size: 120%;")
                      )
               ),
+              #box(leafletOutput(outputId = "uppsala", height=500), title = span(icon("map-pin"), "Uppsala"), status = "primary", solidHeader = TRUE, textOutput("map-pin"))
               column(width = 6,
                      tabBox(width = 12, title = NULL, id = "tabset_up", 
                             tabPanel("Karta", leafletOutput(outputId = "uppsala", height=400)),
@@ -469,12 +533,42 @@ body <- dashboardBody(
             )
     ),
     
+    # tabItem(tabName = "skane",
+    #         h2(""),
+    #         fluidRow(
+    #           column(width = 6,
+    #                  fluidRow(
+    #                    valueBox(width = 12, tail(skane_cum$cumsum, 1), "Deltagare i Skåne", icon = icon("users"), color = "aqua")),
+    #                  fluidRow(
+    #                    box(width = 12, title = span(icon("exclamation-circle"), "Skåne"), status = "primary", solidHeader = TRUE, textOutput("exclamation-circle2"),
+    #                        tags$p("COVID Symptom Study är en studie vid Lunds universitet och Uppsala universitet. Till viss del på grund av den ökade smittspridningen i Skåne län bland yngre personer, har Lunds universitet tillsammans med forskningsprojektet beslutat sig för att ge projektet ökad synlighet via universitets kanaler. I samband med detta vill vi visa deltagare i Skåne län hur utvecklingen vad gäller fördelningen av studiedeltagare ser ut. Information om antal, kön, geografisk spridning presenteras på denna flik."),
+    #                        #tags$a(imageOutput("uppsala_logo"), href = "https://www.covid19app.lu.se/"),
+    #                        style = "font-size: 120%;")
+    #                  )
+    #           ),
+    #           #box(leafletOutput(outputId = "uppsala", height=500), title = span(icon("map-pin"), "Uppsala"), status = "primary", solidHeader = TRUE, textOutput("map-pin"))
+    #           column(width = 6,
+    #                  tabBox(width = 12, title = NULL, id = "tabset_up_skane", 
+    #                         tabPanel("Karta", leafletOutput(outputId = "skane", height=400)),
+    #                         tabPanel("Deltagare - ålder/kön", plotlyOutput("plot_skane1", height = 400)),
+    #                         tabPanel("Deltagare - kön", plotlyOutput("plot_skane2", height = 400))
+    #                  )
+    #           )
+    #         ),
+    #         fluidRow(
+    #           box(width = 12, title = span(icon("chart-line"), "Trend deltagande i Skåne Län"), status = "primary", solidHeader = TRUE, textOutput("chart-line8"),
+    #               plotlyOutput("skane_cum", height = 300))
+    #         )
+    # ),
+    
     tabItem(tabName = "dataRepo",
             h2("Arkiv"),
             tags$p(),
             tags$p("Den 21 januari 2021 uppdaterade vi vår prediktionsmodell (läs mer om detta",
                    tags$a(href="https://www.covid19app.lu.se/article/uppdatering-av-prediktionsmodell-0", "HÄR)."), 
-                   "Det kommer fortfarande att vara möjligt att ladda ned filer med prediktioner från den gamla modellen under en viss tid framöver. Observera dock att dessa filer inte kommer att uppdateras lika ofta som filerna för den nya modellen (ca en gång i veckan).",
+                   "Det kommer fortfarande att vara möjligt att ladda ned filer med prediktioner från den gamla modellen under en viss tid framöver. Observera dock att dessa filer inte kommer att uppdateras lika ofta som filerna för den nya modellen (ca en gång i veckan).
+                   Den 4 november uppdaterades frågorna om symtom i appen, bl.a. omformulerades frågan om feber. Detta medför att trenderna före och efter detta datum inte är helt jämförbara då frågorna och sättet deltagare rapporterar på skiljer sig från tidigare.
+                   Den viktiga frågan kring lukt och smak är mycket central i vår modell då den representerar det symtom som skiljer sig mest åt mellan personer som har ett positivt PCR-test för covid-19 och personer som inte har det. Frågan har gjorts mer specifik och delats upp i två frågor (en om förlorat lukt-/smaksinne, en om förändringar i lukt-/smaksinne). Vi har nu lagt in båda dessa frågor i modellen och uppdaterat våra resultat från den 4:e november och framåt. Vi arbetar kontinuerligt med att uppdatera våra modeller.",
                    style = "font-size: 120%;"),
             tags$p(),
             tags$p(),
@@ -516,7 +610,11 @@ body <- dashboardBody(
             tags$a(imageOutput("hex"))
             
     ),
-    
+    # fluidRow(
+    #   box(width = 8, title = span(icon("exclamation-triangle"), "Uppdatering"), status = "primary", solidHeader = TRUE, textOutput("exclamation-triangle3"),
+    #       "Den 4 november uppdaterades frågorna om symtom i appen, bl.a. omformulerades frågan om feber. Detta medför att trenderna före och efter detta datum inte är helt jämförbara då frågorna och sättet deltagare rapporterar på skiljer sig från tidigare.", 
+    #       tags$p("Den viktiga frågan kring lukt och smak är mycket central i vår modell då den representerar det symtom som skiljer sig mest åt mellan personer som har ett positivt PCR-test för covid-19 och personer som inte har det. Frågan har gjorts mer specifik och delats upp i två frågor (en om förlorat lukt-/smaksinne, en om förändringar i lukt-/smaksinne). Vi har nu lagt in båda dessa frågor i modellen och uppdaterat våra resultat från den 4:e november och framåt. Vi arbetar kontinuerligt med att uppdatera våra modeller."))
+    # )
     tabItem(tabName = "dataportalen",
             h2("Covid-19 Data Portal"),
             tags$p("Den svenska dataportalen för covid-19 tillhandahåller information, riktlinjer, verktyg och tjänster för att stödja forskare att använda svenska och europeiska tjänster för datadelning. Portalen är den svenska noden av-",
@@ -626,6 +724,33 @@ ui <- dashboardPage(
 
 
 server <- function(input, output) {
+  
+  output$vaccplot <- renderPlotly(
+    
+    vaccin_df %>%
+      plot_ly(labels = ~type, 
+              values = ~round(prop * 100,2), 
+              text = ~type,
+              textposition = 'inside',
+              #insidetextfont = list(color = '#FFFFFF'),
+              type = 'pie', 
+              sort = FALSE,
+              marker = list(colors = c("#ECCBAE","#046C9A", "#D69C4E"), line = list(color = '#FFFFFF', width = 1)),
+              hoverinfo = "text",
+              hovertext = paste0(vaccin_df$type, "<br>", gsub("\\.", ",", as.character(round(vaccin_df$prop * 100, 2))), " %")) %>%
+      layout(separators = ',.',
+             #margin = margin_pie,
+             #title = '% vaccination in active participants*',
+             xaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE),
+             yaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE)) 
+    # %>%
+    #   layout(annotations = 
+    #            list(x = 1.15, y = -0.05, text = "*active participants are defined as those who contributed to the study at least one time in the past 7 days.", 
+    #                 showarrow = F, xref='paper', yref='paper', 
+    #                 xanchor='right', yanchor='auto', xshift=0, yshift=0,
+    #                 font=list(size=12, color="black")))
+    
+  )
   
   ay <- list(
     tickfont = list(color = "red"),
